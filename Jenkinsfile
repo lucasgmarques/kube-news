@@ -1,12 +1,16 @@
 pipeline {
   agent any
 
+  environment {
+    app_version = "1.0.0"
+  }
+
   stages {
     stage("Build Docker Image") {
         steps {
             script {
                 // Construir a imagem Docker
-                docker.build("lucasgmarques/kube-news:${env.BUILD_ID}", "-f ./src/Dockerfile ./src")
+                docker.build("lucasgmarques/kube-news:${env.app_version}", "-f ./src/Dockerfile ./src")
               
             }
         }
@@ -17,19 +21,16 @@ pipeline {
             script {
                 // Enviar a imagem Docker para o registro
                 docker.withRegistry('https://registry.hub.docker.com', 'dockerhub') {
-                  docker.image("lucasgmarques/kube-news:${env.BUILD_ID}").push()
+                  docker.image("lucasgmarques/kube-news:${env.app_version}").push()
                 }
             }
         }
     }
 
-    stage("Deploy no k8s") {
-        environment {
-            tag_version = "${env.BUILD_ID}"
-        }
+    stage("Deploy to Kubernetes") {
         steps {
             withKubeConfig([credentialsId: 'kubeconfig']){
-                sh 'sed -i "s/{{TAG}}/$tag_version/g" ./k8s/deployment.yaml'
+                sh 'sed -i "s/{{TAG}}/$app_version/g" ./k8s/deployment.yaml'
                 sh 'kubectl apply -f k8s/deployment.yaml'
             }
         }
